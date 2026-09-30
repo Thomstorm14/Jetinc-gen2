@@ -14,10 +14,10 @@ WHAT CHANGED IN THIS PASS:
     per agent. Every ledger entry now carries that Prime ID in its meta,
     which is what makes an agent's full history ("Shadow") pullable by
     ID later via prime_registry.get_shadow().
-  - Admiral Prime is registered once and logs OBSERVE entries at run
-    start/end. There is no separate "Storm Shadow" Prime ID — Shadow is
-    not a 15th watcher agent, it is the property every Prime ID already
-    has: get_shadow(prime_id) IS that entity's shadow, for any entity.
+  - Storm Shadow (SS) and Admiral Prime each get their own Prime ID too,
+    registered once, and log SS-OBSERVE entries at run start/end — this
+    is the "every entity has its own Shadow, SS just observes" model
+    from canon, not a separate watcher system.
 
 Agents remain permanently seated. Only role bundles rotate, via
 chamber.py's ChamberSystem, same as before.
@@ -158,24 +158,23 @@ def register_all_seats(registry: PrimeRegistry, triformer_seats, tricore_groups)
         seat.prime_id = entry.prime_id
 
 
-def register_admiral_prime(registry: PrimeRegistry):
-    """Admiral Prime — registered once, reused forever.
-
-    NOTE: there is deliberately no separate "Storm Shadow" registration
-    here. Storm Shadow is not a 15th agent watching the other 14 — it is
-    the property every single Prime ID already has: call
-    prime_registry.get_shadow(ledger_path, any_prime_id) and you get that
-    entity's complete, chained history. That's its shadow. Admiral Prime
-    has one. Every TV and MTV seat has one. There is no global watcher
-    Prime ID, because the shadow already belongs to the entity itself.
+def register_system_roles(registry: PrimeRegistry):
+    """Storm Shadow and Admiral Prime — registered once, reused forever.
+    Returns (ss_prime_id, admiral_prime_id).
     """
+    ss = registry.resolve("SS")
+    if ss is None:
+        ss = registry.register(
+            short_code="SS", entity_type="SS", city="PRIME",
+            shift="ALLSHIFT", seat="OVERSEER",
+        )
     admiral = registry.resolve("ADMIRAL-PRIME")
     if admiral is None:
         admiral = registry.register(
             short_code="ADMIRAL-PRIME", entity_type="ADMIRAL", city="PRIME",
             shift="ALLSHIFT", seat="FOUNDER",
         )
-    return admiral.prime_id
+    return ss.prime_id, admiral.prime_id
 
 
 # ============================================================
@@ -400,14 +399,14 @@ def run_genone():
 
     ledger = TridentLedger(LEDGER_BASE)
     registry = PrimeRegistry(REGISTRY_PATH)
-    admiral_prime_id = register_admiral_prime(registry)
+    ss_prime_id, admiral_prime_id = register_system_roles(registry)
 
     cycle = ledger.entries[-1].meta.get("cycle", 0) + 1 if ledger.entries else 1
 
     ledger.add_entry(
-        agent="Admiral-Prime", phase="OBSERVE", role="Admiral-Prime",
+        agent="Storm-Shadow", phase="SS-OBSERVE", role="Storm-Shadow",
         content="GenOne run starting.",
-        meta={"prime_id": admiral_prime_id, "cycle": cycle, "event": "run_start"},
+        meta={"prime_id": ss_prime_id, "cycle": cycle, "event": "run_start"},
     )
 
     triformer = Triformer(name="GenOne-Triformer-Prime")
@@ -528,9 +527,9 @@ def run_genone():
         content=f"TOTAL RUN TIME: {run_timer.elapsed()}s", meta={"cycle": cycle},
     )
     ledger.add_entry(
-        agent="Admiral-Prime", phase="OBSERVE", role="Admiral-Prime",
+        agent="Storm-Shadow", phase="SS-OBSERVE", role="Storm-Shadow",
         content="GenOne run complete.",
-        meta={"prime_id": admiral_prime_id, "cycle": cycle, "event": "run_end"},
+        meta={"prime_id": ss_prime_id, "cycle": cycle, "event": "run_end"},
     )
 
     chain_ok, chain_detail = ledger.verify_chain()

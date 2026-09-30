@@ -3,15 +3,12 @@ JETinc — Triverai (TV) Agent
 Inner loop of the Triformer system.
 Each Triverai contains 3 MTVs.
 
-PATCHED (speed fix): generate_sr() now delegates to the lead MTV only
-(ONE call), same lightweight pattern as generate_or(), instead of
-running the full 3-MTV run_inner_loop(). This was causing every single
-chamber-cycle call to a TV seat to silently trigger 3 nested LLM calls
-underneath instead of 1 — a major hidden cost at the Triformer tier.
-
-The full 3-MTV inner loop is preserved and still available under its
-original name, generate_tr(), for any deeper internal-report use
-separate from the fast chamber cycle.
+PATCHED: added chamber-level pass-through methods (generate_or, grade,
+comerge, subprimal_merge, vote) so a TV can act as a single seat in the
+Triformer-level chamber cycle, same interface as an MTV seat. These
+delegate to the TV's current lead MTV. The original run_inner_loop /
+generate_tr (3-step SR1/SR2/synthesis) is preserved and untouched for
+any internal-report use separate from the chamber cycle.
 """
 import hashlib
 import time
@@ -40,20 +37,15 @@ class Triverai:
         return hashlib.sha256(seed.encode()).hexdigest()[:16]
 
     # ---- Chamber-level pass-through (Triformer tier uses these) ----
-    # All of these are now LIGHTWEIGHT — one call to the lead MTV,
-    # not the full 3-MTV inner loop. This is the speed fix.
 
     def generate_or(self, task):
-        """Original Response for this TV seat — delegates to lead MTV. ONE call."""
+        """Original Response for this TV seat — delegates to lead MTV."""
         sr = self.lead.generate_sr(task)
         return sr["analysis"]["assessment"]
 
     def generate_sr(self, task):
-        """Structured Response for this TV seat, chamber-cycle version.
-        ONE call to the lead MTV — NOT the full 3-MTV inner loop.
-        (Previously delegated to run_inner_loop, which was the bug.)"""
-        sr = self.lead.generate_sr(task)
-        return sr["analysis"]["assessment"]
+        """Structured Response for this TV seat — runs full inner loop."""
+        return self.run_inner_loop(task)
 
     def grade(self, peer_name, peer_response, task):
         return self.lead.grade(peer_name, peer_response, task)
@@ -67,9 +59,7 @@ class Triverai:
     def vote(self, final_merge, task):
         return self.lead.vote(final_merge, task)
 
-    # ---- Full 3-MTV inner-loop report (unchanged, still available) ----
-    # Use generate_tr() explicitly if you want the full deliberation
-    # report. The chamber cycle no longer calls this automatically.
+    # ---- Original inner-loop report (unchanged, still available) ----
 
     def run_inner_loop(self, task):
         start_time = time.time()
@@ -98,8 +88,6 @@ class Triverai:
         return tr
 
     def generate_tr(self, task):
-        """Full 3-MTV inner-loop report. Call this explicitly when you
-        want the deeper deliberation — NOT used by the fast chamber cycle."""
         return self.run_inner_loop(task)
 
     def rotate_lead(self):

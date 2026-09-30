@@ -1,0 +1,510 @@
+{
+    "total_fragments": 72,
+    "engine": "GenOne-Collage-Defrag",
+    "manifest": [
+        {
+            "file_name": "benchmark_harness.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\benchmark_harness.py",
+            "size_bytes": 9111,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "benchmark_results.json",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\benchmark_results.json",
+            "size_bytes": 14256,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "chamber.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\chamber.py",
+            "size_bytes": 1412,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "code gs ok.txt",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\code gs ok.txt",
+            "size_bytes": 6015,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "collage_defrag_builder.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\collage_defrag_builder.py",
+            "size_bytes": 1177,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "file_listing.json",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\file_listing.json",
+            "size_bytes": 9567,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "folder_cleanup_task.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\folder_cleanup_task.py",
+            "size_bytes": 7145,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "folder_cleanup_task_OLD_20260720_050233.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\folder_cleanup_task_OLD_20260720_050233.py",
+            "size_bytes": 7145,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "genone.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\genone.py",
+            "size_bytes": 21723,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "genone_OLD_20260718_005303.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\genone_OLD_20260718_005303.py",
+            "size_bytes": 17425,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "genone_PRE_RECHECK_20260719_021810.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\genone_PRE_RECHECK_20260719_021810.py",
+            "size_bytes": 21485,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.449837"
+        },
+        {
+            "file_name": "ground_truth_duplicates.json",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\ground_truth_duplicates.json",
+            "size_bytes": 4833,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "mtv.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\mtv.py",
+            "size_bytes": 6258,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "mtv_OLD_20260719_024343.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\mtv_OLD_20260719_024343.py",
+            "size_bytes": 7217,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "publish_to_drive.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\publish_to_drive.py",
+            "size_bytes": 4467,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "qwen_client.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\qwen_client.py",
+            "size_bytes": 1140,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "task_bank.json",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\task_bank.json",
+            "size_bytes": 4985,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "test_run_20260723_180846.log",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\test_run_20260723_180846.log",
+            "size_bytes": 3630,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "test_single_mtv.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\test_single_mtv.py",
+            "size_bytes": 3449,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "test_single_tv.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\test_single_tv.py",
+            "size_bytes": 4326,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "triverai.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triverai.py",
+            "size_bytes": 4291,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.450839"
+        },
+        {
+            "file_name": "dump_part_1.txt",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\dump_part_1.txt",
+            "size_bytes": 65413,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "dump_part_2.txt",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\dump_part_2.txt",
+            "size_bytes": 52291,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "dump_part_3.txt",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\dump_part_3.txt",
+            "size_bytes": 513240,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "ledger.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\ledger.py",
+            "size_bytes": 10360,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "ledger_OLD_20260717_231138.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\ledger_OLD_20260717_231138.py",
+            "size_bytes": 9956,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "ledger_OLD_20260719_025825.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\ledger_OLD_20260719_025825.py",
+            "size_bytes": 9956,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "prime_registry.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\prime_registry.py",
+            "size_bytes": 14564,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "qwen_client.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\qwen_client.py",
+            "size_bytes": 1717,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "__init__.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__init__.py",
+            "size_bytes": 0,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.546382"
+        },
+        {
+            "file_name": "mtv.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\mtv\\mtv.py",
+            "size_bytes": 7217,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "__init__.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\mtv\\__init__.py",
+            "size_bytes": 0,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "mtv.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\mtv\\__pycache__\\mtv.cpython-312.pyc",
+            "size_bytes": 9935,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "mtv.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\mtv\\__pycache__\\mtv.cpython-314.pyc",
+            "size_bytes": 10075,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "__init__.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\mtv\\__pycache__\\__init__.cpython-312.pyc",
+            "size_bytes": 160,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "__init__.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\mtv\\__pycache__\\__init__.cpython-314.pyc",
+            "size_bytes": 162,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "triverai.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\triverai\\triverai.py",
+            "size_bytes": 5013,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "__init__.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\triverai\\__init__.py",
+            "size_bytes": 0,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "triverai.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\triverai\\__pycache__\\triverai.cpython-312.pyc",
+            "size_bytes": 7551,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.547382"
+        },
+        {
+            "file_name": "triverai.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\triverai\\__pycache__\\triverai.cpython-314.pyc",
+            "size_bytes": 7841,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "__init__.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\triverai\\__pycache__\\__init__.cpython-312.pyc",
+            "size_bytes": 165,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "__init__.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\triverai\\__pycache__\\__init__.cpython-314.pyc",
+            "size_bytes": 167,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "ledger.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__pycache__\\ledger.cpython-312.pyc",
+            "size_bytes": 13278,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "ledger.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__pycache__\\ledger.cpython-314.pyc",
+            "size_bytes": 15387,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "prime_registry.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__pycache__\\prime_registry.cpython-312.pyc",
+            "size_bytes": 16390,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "prime_registry.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__pycache__\\prime_registry.cpython-314.pyc",
+            "size_bytes": 18621,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "qwen_client.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__pycache__\\qwen_client.cpython-312.pyc",
+            "size_bytes": 2044,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "qwen_client.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__pycache__\\qwen_client.cpython-314.pyc",
+            "size_bytes": 2070,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "__init__.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__pycache__\\__init__.cpython-312.pyc",
+            "size_bytes": 156,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "__init__.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\agents\\__pycache__\\__init__.cpython-314.pyc",
+            "size_bytes": 158,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.548472"
+        },
+        {
+            "file_name": "codex.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\codex\\codex.py",
+            "size_bytes": 8487,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.549473"
+        },
+        {
+            "file_name": "__init__.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\codex\\__init__.py",
+            "size_bytes": 0,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.549473"
+        },
+        {
+            "file_name": "chamber.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triformer\\chamber.py",
+            "size_bytes": 994,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.549473"
+        },
+        {
+            "file_name": "triformer.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triformer\\triformer.py",
+            "size_bytes": 6491,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.549473"
+        },
+        {
+            "file_name": "__init__.py",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triformer\\__init__.py",
+            "size_bytes": 0,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.549473"
+        },
+        {
+            "file_name": "chamber.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triformer\\__pycache__\\chamber.cpython-314.pyc",
+            "size_bytes": 2079,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "triformer.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triformer\\__pycache__\\triformer.cpython-312.pyc",
+            "size_bytes": 8631,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "triformer.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triformer\\__pycache__\\triformer.cpython-314.pyc",
+            "size_bytes": 8856,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "__init__.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triformer\\__pycache__\\__init__.cpython-312.pyc",
+            "size_bytes": 159,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "__init__.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\triformer\\__pycache__\\__init__.cpython-314.pyc",
+            "size_bytes": 161,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "chamber.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\__pycache__\\chamber.cpython-312.pyc",
+            "size_bytes": 2363,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "chamber.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\__pycache__\\chamber.cpython-314.pyc",
+            "size_bytes": 2605,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "genone.cpython-312.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\__pycache__\\genone.cpython-312.pyc",
+            "size_bytes": 25412,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "genone.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\__pycache__\\genone.cpython-314.pyc",
+            "size_bytes": 26349,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "mtv.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\__pycache__\\mtv.cpython-314.pyc",
+            "size_bytes": 9300,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.550472"
+        },
+        {
+            "file_name": "qwen_client.cpython-314.pyc",
+            "path": "F:\\JETinc\\JETcity_Launchpad\\jetinc_build\\__pycache__\\qwen_client.cpython-314.pyc",
+            "size_bytes": 1742,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.551412"
+        },
+        {
+            "file_name": "ledger_benchmark_v1.jsonl",
+            "path": "F:\\JETinc\\Logs\\Trident\\ledger_benchmark_v1.jsonl",
+            "size_bytes": 628951,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.570572"
+        },
+        {
+            "file_name": "ledger_mtv_test_v1.jsonl",
+            "path": "F:\\JETinc\\Logs\\Trident\\ledger_mtv_test_v1.jsonl",
+            "size_bytes": 7529,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.573570"
+        },
+        {
+            "file_name": "ledger_tv_test_v1.jsonl",
+            "path": "F:\\JETinc\\Logs\\Trident\\ledger_tv_test_v1.jsonl",
+            "size_bytes": 7139,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.584665"
+        },
+        {
+            "file_name": "ledger_v1.jsonl",
+            "path": "F:\\JETinc\\Logs\\Trident\\ledger_v1.jsonl",
+            "size_bytes": 87168,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.589666"
+        },
+        {
+            "file_name": "ledger_v1_PRE-LOCKFIX_BROKEN.jsonl",
+            "path": "F:\\JETinc\\Logs\\Trident\\ledger_v1_PRE-LOCKFIX_BROKEN.jsonl",
+            "size_bytes": 275024,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.599760"
+        },
+        {
+            "file_name": "prime_registry.jsonl",
+            "path": "F:\\JETinc\\Logs\\Trident\\prime_registry.jsonl",
+            "size_bytes": 3638,
+            "defrag_status": "indexed_clean",
+            "timestamp": "2026-07-24T15:44:50.601424"
+        }
+    ]
+}

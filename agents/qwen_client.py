@@ -1,0 +1,47 @@
+"""
+JETinc — Qwen Client
+Thin wrapper around the local Ollama HTTP API.
+Model: qwen2.5:0.5b (confirmed via `ollama list`)
+
+PATCHED: added keep_alive (keeps model resident in memory between
+calls instead of reloading from disk each time) and num_predict
+(hard cap on response length, since prompts ask for brevity but
+nothing previously enforced it).
+"""
+import requests
+
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL = "qwen2.5:0.5b"
+
+
+def ask_qwen(prompt, timeout=60, max_tokens=200):
+    """
+    Send a prompt to Qwen via Ollama and return the raw text response.
+    Raises RuntimeError with a clear message if Ollama isn't reachable
+    or the model isn't loaded — never fails silently.
+    """
+    try:
+        resp = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "keep_alive": "30m",       # stay loaded in memory for 30 min idle, no reload cost between calls
+                "options": {
+                    "num_predict": max_tokens,  # hard cap — stops rambling past what the prompt asked for
+                },
+            },
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("response", "").strip()
+    except requests.exceptions.ConnectionError:
+        raise RuntimeError(
+            "Cannot reach Ollama at localhost:11434. "
+            "Run `ollama serve` (or confirm the Ollama app is running) and retry."
+        )
+    except requests.exceptions.Timeout:
+        raise RuntimeError(f"Qwen call timed out after {timeout}s.")
+    except Exception as e:
+        raise RuntimeError(f"Qwen call failed: {e}")
