@@ -1,0 +1,17 @@
+{
+    "R&R": {
+        "temperature": 0.2,
+        "max_tokens": 1024,
+        "system_instruction": "Execute strict research and review protocols with high auditability."
+    },
+    "TriCore": {
+        "temperature": 0.1,
+        "max_tokens": 2048,
+        "system_instruction": "Ensure core infrastructure decisions follow deterministic tri-city consensus."
+    },
+    "Triformer": {
+        "temperature": 0.4,
+        "max_tokens": 4096,
+        "system_instruction": "Perform complex multi-agent synthesis and cross-city state synchronization."
+    }
+}

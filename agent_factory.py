@@ -1,60 +1,50 @@
-import json, hashlib, time
+﻿import json
+import hashlib
+import sys
+import codex_loader
 
-SHIFTS = ["Day", "Swing", "Graveyard"]
-CITIES = ["Mount Thomas", "Julian Bay", "Evans"]
+LEDGER_FILE = "ledger_v1.jsonl"
 
-def log_shift_handoff(city, week_num, shift_type, active_count):
-    entry = {
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "event": "SHIFT_HANDOFF",
-        "city": city,
-        "week": week_num,
-        "shift": shift_type,
-        "active_agents": active_count
-    }
-    entry_bytes = json.dumps(entry, sort_keys=True).encode("utf-8")
-    entry["sha256"] = hashlib.sha256(entry_bytes).hexdigest()
-    with open("ledger_v1.jsonl", "a") as f:
-        f.write(json.dumps(entry) + "\n")
-    return entry["sha256"]
+def verify_ledger_chain(filepath=LEDGER_FILE):
+    print("\n[GUARD] Verifying Trident Ledger SHA-256 chain integrity...")
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            lines = [l.strip() for l in f if l.strip()]
+    except FileNotFoundError:
+        print(f"[WARN] Ledger file '{filepath}' not found. Initializing new chain.")
+        return True
 
-def initialize_48_roster():
-    roster = []
-    agent_id = 1
-    for city in CITIES:
-        for shift in SHIFTS:
-            for _ in range(4):
-                roster.append({"agent_id": f"AGT-{agent_id:02d}", "city": city, "type": "Full-Time", "base_shift": shift})
-                agent_id += 1
-    for i in range(12):
-        roster.append({"agent_id": f"REL-{i+1:02d}", "city": "Relief Pool", "type": "Part-Time", "base_shift": "Flexible"})
-    
-    with open("roster_48.jsonl", "w") as f:
-        for agent in roster:
-            f.write(json.dumps(agent) + "\n")
-    return roster
+    prev_hash = "0" * 64
+    for idx, line in enumerate(lines, 1):
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            print(f"[CRITICAL] Line {idx} is corrupted JSON. Pipeline halted.")
+            return False
 
-def execute_rotation(week=1):
-    roster = initialize_48_roster()
-    print(f"\n=== 48-AGENT SHIFT ROTATION MANAGER (WEEK {week}) ===")
-    for city_idx, city in enumerate(CITIES):
-        current_shift = SHIFTS[(city_idx + (week - 1)) % 3]
-        active = [a for a in roster if a["city"] == city and a["base_shift"] == current_shift]
-        h = log_shift_handoff(city, week, current_shift, len(active))
-        print(f"[{city}] Week {week} -> Active Shift: {current_shift} ({len(active)} Agents) | SHA256: {h[:12]}...")
+        stored_hash = entry.get("sha256", "")
+        calc_dict = {
+            "timestamp": entry.get("timestamp"),
+            "event": entry.get("event"),
+            "details": entry.get("details", {}),
+            "prev_hash": entry.get("prev_hash", "")
+        }
+
+        computed_hash = hashlib.sha256(json.dumps(calc_dict, sort_keys=True).encode("utf-8")).hexdigest()
+        if computed_hash != stored_hash:
+            print(f"[CRITICAL] SHA-256 mismatch at entry line {idx}. Integrity check failed.")
+            return False
+
+    print(f"[SUCCESS] Trident Ledger verified cleanly ({len(lines)} entries intact).")
+    return True
+
+def run_agent_factory():
+    if not verify_ledger_chain():
+        print("[HALT] Factory execution aborted due to ledger integrity failure.")
+        sys.exit(1)
+
+    print("\n[HOOK] Executing automatic Codex profile binding for active shift...")
+    codex_loader.bind_codex_to_roster()
 
 if __name__ == "__main__":
-    execute_rotation(week=1)
-
-import codex_loader
-print("\n[HOOK] Executing automatic Codex profile binding for active shift...")
-codex_loader.bind_codex_to_roster()
-
-
-import codex_loader
-print("\n[HOOK] Executing automatic Codex profile binding for active shift...")
-codex_loader.bind_codex_to_roster()
-
-import codex_loader
-print("\n[HOOK] Executing automatic Codex profile binding for active shift...")
-codex_loader.bind_codex_to_roster()
+    run_agent_factory()
