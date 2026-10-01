@@ -1,0 +1,167 @@
+/**
+ * JETinc_Live_Ledger â€” Code.gs
+ *
+ * Reads ledger_v1.jsonl and status.json from the Drive folder that
+ * Google Drive for Desktop syncs from the ThinkCentre (published there
+ * by publish_to_drive.py). Appends any NEW entries to a Google Sheet on
+ * an hourly trigger, and serves a public read-only HTML dashboard.
+ *
+ * SCOPE NOTE: this does NOT independently recompute the SHA-256 chain
+ * in Apps Script. The authoritative chain check is done locally by
+ * ledger.py / publish_to_drive.py (both proven, tested against real
+ * tamper scenarios) and published into status.json. This dashboard
+ * displays that verified status plus the full chain contents, live,
+ * publicly. Recomputing the hash independently in Apps Script is a
+ * real fast-follow, but requires exactly matching Python's json.dumps
+ * unicode-escaping behavior byte-for-byte, which is easy to get subtly
+ * wrong -- doing it carefully later beats doing it wrong now.
+ *
+ * SETUP: see the accompanying deploy_steps.md.
+ */
+
+const SHEET_ID = "1bbB8cOzEgcWMul8a9H1HVxJ-uK2pKtI8bT6ClBgfx3Y";          // JETinc_Trident_Ledger_Live
+const DRIVE_FOLDER_NAME = "JETinc_Live_Ledger";         // must match publish_to_drive.py's target folder name
+const LEDGER_FILE_NAME = "ledger_v1.jsonl";
+const STATUS_FILE_NAME = "status.json";
+const SHEET_TAB_NAME = "Ledger";
+const LAST_ROW_PROP = "LAST_IMPORTED_INDEX";
+
+/**
+ * Finds the synced Drive folder by name. Throws a clear error if not
+ * found, rather than failing silently.
+ */
+function getLedgerFolder_() {
+  const folders = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
+  if (!folders.hasNext()) {
+    throw new Error(
+      `Folder "${DRIVE_FOLDER_NAME}" not found in this account's Drive. ` +
+      `Confirm Google Drive for Desktop is syncing and the folder name matches exactly.`
+    );
+  }
+  return folders.next();
+}
+
+function getFileInFolder_(folder, fileName) {
+  const files = folder.getFilesByName(fileName);
+  if (!files.hasNext()) return null;
+  return files.next();
+}
+
+/**
+ * Main import function -- run manually once to test, then via the
+ * hourly trigger set up in setupTriggers().
+ */
+function importLedgerEntries() {
+  const folder = getLedgerFolder_();
+  const ledgerFile = getFileInFolder_(folder, LEDGER_FILE_NAME);
+  if (!ledgerFile) {
+    Logger.log(`${LEDGER_FILE_NAME} not found yet -- has publish_to_drive.py run at least once?`);
+    return;
+  }
+
+  const content = ledgerFile.getBlob().getDataAsString("UTF-8");
+  const lines = content.split("\n").filter(l => l.trim().length > 0);
+
+  const props = PropertiesService.getScriptProperties();
+  const lastImported = parseInt(props.getProperty(LAST_ROW_PROP) || "-1", 10);
+
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = ss.getSheetByName(SHEET_TAB_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_TAB_NAME);
+    sheet.appendRow([
+      "Index", "Timestamp", "Agent", "Phase", "Role",
+      "Content", "Meta (JSON)", "Prev Hash", "Entry Hash",
+    ]);
+    sheet.setFrozenRows(1);
+  }
+
+  let newRows = 0;
+  lines.forEach((line) => {
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch (e) {
+      Logger.log(`Skipping malformed line: ${e}`);
+      return;
+    }
+    if (entry.index <= lastImported) return;  // already imported
+
+    sheet.appendRow([
+      entry.index,
+      entry.timestamp,
+      entry.agent,
+      entry.phase,
+      entry.role,
+      entry.content,
+      JSON.stringify(entry.meta || {}),
+      entry.prev_hash,
+      entry.entry_hash,
+    ]);
+    newRows++;
+    props.setProperty(LAST_ROW_PROP, String(entry.index));
+  });
+
+  Logger.log(`Imported ${newRows} new entries.`);
+}
+
+/**
+ * Reads status.json (written by publish_to_drive.py) so the dashboard
+ * can show the REAL, locally-verified chain status -- not a guess.
+ */
+function getStatus_() {
+  const folder = getLedgerFolder_();
+  const statusFile = getFileInFolder_(folder, STATUS_FILE_NAME);
+  if (!statusFile) {
+    return { chain_ok: null, chain_detail: "status.json not found yet", entry_count: 0, last_published_utc: null };
+  }
+  try {
+    return JSON.parse(statusFile.getBlob().getDataAsString("UTF-8"));
+  } catch (e) {
+    return { chain_ok: null, chain_detail: `error reading status.json: ${e}`, entry_count: 0, last_published_utc: null };
+  }
+}
+
+/**
+ * Web app entry point -- this is what the public URL actually serves.
+ */
+function doGet(e) {
+  const status = getStatus_();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_TAB_NAME);
+
+  let rows = [];
+  if (sheet && sheet.getLastRow() > 1) {
+    const numRows = Math.min(sheet.getLastRow() - 1, 200); // most recent 200 for page load speed
+    const startRow = Math.max(2, sheet.getLastRow() - numRows + 1);
+    rows = sheet.getRange(startRow, 1, sheet.getLastRow() - startRow + 1, 9).getValues();
+  }
+
+  const template = HtmlService.createTemplateFromFile("dashboard");
+  template.status = status;
+  template.rows = rows.reverse(); // newest first
+  return template.evaluate()
+    .setTitle("JETinc Trident Ledger â€” Live")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1");
+}
+
+/**
+ * Run ONCE from the Apps Script editor to set up the hourly auto-import
+ * trigger. After this, the dashboard updates itself with zero manual
+ * intervention on the Apps Script side (publish_to_drive.py still needs
+ * to run on the ThinkCentre periodically to feed new data in).
+ */
+function setupTriggers() {
+  // Clear any existing triggers for this function first, so re-running
+  // this doesn't create duplicates.
+  ScriptApp.getProjectTriggers().forEach((t) => {
+    if (t.getHandlerFunction() === "importLedgerEntries") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger("importLedgerEntries")
+    .timeBased()
+    .everyHours(1)
+    .create();
+  Logger.log("Hourly import trigger installed.");
+}

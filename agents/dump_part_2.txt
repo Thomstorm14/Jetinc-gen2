@@ -1,0 +1,1386 @@
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\ledger.py ===
+"""
+TridentLedger — SHA-256 block-chained ledger for JETinc / GenOne.
+
+Replaces the old ad-hoc markdown-append ledger. Every entry's hash
+incorporates the previous entry's hash, so any edit to an earlier
+entry breaks the chain from that point forward — tamper-evident,
+not tamper-proof (matches the Blueprint Level 11 philosophy: not
+unhackable, but any tampering is provably detectable).
+
+Writes incrementally after every call to add_entry() — this preserves
+the fix from the previous ledger version where a crash mid-run could
+silently lose all data. Two files are kept in sync on every write:
+
+  - <base>.jsonl   machine-readable chain, one JSON object per line,
+                   this is the file verify_chain() actually checks
+  - <base>.md      human-readable rendering of the same chain, for
+                   the "read it in a text editor" use case
+
+Usage (drop-in for the old ledger.write_ledger() call pattern):
+
+    from ledger import TridentLedger
+
+    ledger = TridentLedger(r"C:\\JETinc\\Logs\\Trident\\ledger_v1")
+    ledger.add_entry(
+        agent="TV-1", phase="OR", role="Triformer-Lead",
+        content="...output text...",
+        meta={"seat": 1, "cycle": 4},
+    )
+    # ledger.add_entry(...) again after every phase, as before
+
+    ok, detail = ledger.verify_chain()
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+
+GENESIS_HASH = "0" * 64
+
+
+@dataclass
+class LedgerEntry:
+    index: int
+    timestamp: str
+    agent: str
+    phase: str
+    role: str
+    content: str
+    meta: dict
+    prev_hash: str
+    entry_hash: str = field(default="")
+
+    def canonical_payload(self) -> str:
+        """Deterministic string used as hashing input.
+
+        Field order and separators are fixed so the same logical
+        entry always hashes to the same value, and so this class
+        (or any re-implementation) can independently reproduce it
+        for verification.
+        """
+        payload = {
+            "index": self.index,
+            "timestamp": self.timestamp,
+            "agent": self.agent,
+            "phase": self.phase,
+            "role": self.role,
+            "content": self.content,
+            "meta": self.meta,
+            "prev_hash": self.prev_hash,
+        }
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+    def compute_hash(self) -> str:
+        return hashlib.sha256(self.canonical_payload().encode("utf-8")).hexdigest()
+
+    def to_json(self) -> dict:
+        return {
+            "index": self.index,
+            "timestamp": self.timestamp,
+            "agent": self.agent,
+            "phase": self.phase,
+            "role": self.role,
+            "content": self.content,
+            "meta": self.meta,
+            "prev_hash": self.prev_hash,
+            "entry_hash": self.entry_hash,
+        }
+
+
+class TridentLedger:
+    def __init__(self, base_path: str):
+        """
+        base_path: path WITHOUT extension, e.g.
+                   r"C:\\JETinc\\Logs\\Trident\\ledger_v1"
+                   -> writes ledger_v1.jsonl and ledger_v1.md
+        """
+        self.base_path = base_path
+        self.jsonl_path = base_path + ".jsonl"
+        self.md_path = base_path + ".md"
+        self.entries: list[LedgerEntry] = []
+        self._load_existing()
+
+    # ------------------------------------------------------------------
+    # Loading / bootstrapping
+    # ------------------------------------------------------------------
+    def _load_existing(self) -> None:
+        """If a chain already exists on disk, load it so a new run
+        continues the SAME chain rather than starting a disconnected
+        one. If not, the first add_entry() call will create genesis.
+        """
+        if not os.path.exists(self.jsonl_path):
+            return
+        with open(self.jsonl_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+                entry = LedgerEntry(
+                    index=data["index"],
+                    timestamp=data["timestamp"],
+                    agent=data["agent"],
+                    phase=data["phase"],
+                    role=data["role"],
+                    content=data["content"],
+                    meta=data.get("meta", {}),
+                    prev_hash=data["prev_hash"],
+                    entry_hash=data["entry_hash"],
+                )
+                self.entries.append(entry)
+
+    # ------------------------------------------------------------------
+    # Writing
+    # ------------------------------------------------------------------
+    def add_entry(
+        self,
+        agent: str,
+        phase: str,
+        role: str,
+        content: str,
+        meta: Optional[dict[str, Any]] = None,
+    ) -> LedgerEntry:
+        prev_hash = self.entries[-1].entry_hash if self.entries else GENESIS_HASH
+        entry = LedgerEntry(
+            index=len(self.entries),
+            timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            agent=agent,
+            phase=phase,
+            role=role,
+            content=content,
+            meta=meta or {},
+            prev_hash=prev_hash,
+        )
+        entry.entry_hash = entry.compute_hash()
+        self.entries.append(entry)
+        self._append_jsonl(entry)
+        self._append_markdown(entry)
+        return entry
+
+    def _append_jsonl(self, entry: LedgerEntry) -> None:
+        os.makedirs(os.path.dirname(self.jsonl_path) or ".", exist_ok=True)
+        with open(self.jsonl_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry.to_json(), sort_keys=True) + "\n")
+
+    def _append_markdown(self, entry: LedgerEntry) -> None:
+        os.makedirs(os.path.dirname(self.md_path) or ".", exist_ok=True)
+        is_new = not os.path.exists(self.md_path)
+        with open(self.md_path, "a", encoding="utf-8") as f:
+            if is_new:
+                f.write("# Trident Ledger — SHA-256 Block-Chained\n\n")
+                f.write(
+                    "Each entry hash = SHA256(index, timestamp, agent, phase, "
+                    "role, content, meta, prev_hash). Chain integrity can be "
+                    "checked with `TridentLedger.verify_chain()`.\n\n---\n\n"
+                )
+            f.write(f"## Entry {entry.index} — {entry.phase} — {entry.agent}\n\n")
+            f.write(f"- **Timestamp:** {entry.timestamp}\n")
+            f.write(f"- **Role:** {entry.role}\n")
+            if entry.meta:
+                f.write(f"- **Meta:** {json.dumps(entry.meta, sort_keys=True)}\n")
+            f.write(f"- **Prev hash:** `{entry.prev_hash}`\n")
+            f.write(f"- **Entry hash:** `{entry.entry_hash}`\n\n")
+            f.write(f"{entry.content}\n\n---\n\n")
+
+    # ------------------------------------------------------------------
+    # Verification
+    # ------------------------------------------------------------------
+    def verify_chain(self) -> tuple[bool, str]:
+        """Recomputes every hash from stored fields and checks linkage.
+        Returns (True, "ok") if intact, or (False, detail) pointing at
+        the first broken entry.
+        """
+        expected_prev = GENESIS_HASH
+        for entry in self.entries:
+            if entry.prev_hash != expected_prev:
+                return False, (
+                    f"Chain break at index {entry.index}: prev_hash on file "
+                    f"({entry.prev_hash}) does not match expected "
+                    f"({expected_prev}) — an entry before this one was "
+                    f"altered, deleted, or reordered."
+                )
+            recomputed = entry.compute_hash()
+            if recomputed != entry.entry_hash:
+                return False, (
+                    f"Tamper detected at index {entry.index} ({entry.agent}/"
+                    f"{entry.phase}): stored hash {entry.entry_hash} does not "
+                    f"match recomputed hash {recomputed} — this entry's "
+                    f"content was modified after being written."
+                )
+            expected_prev = entry.entry_hash
+        return True, f"ok — {len(self.entries)} entries verified, chain intact"
+
+    # ------------------------------------------------------------------
+    # Convenience
+    # ------------------------------------------------------------------
+    def latest_hash(self) -> str:
+        return self.entries[-1].entry_hash if self.entries else GENESIS_HASH
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+
+if __name__ == "__main__":
+    # Self-test: write a small chain, verify it, then tamper and
+    # verify again to prove detection works.
+    import tempfile
+
+    tmpdir = tempfile.mkdtemp()
+    test_base = os.path.join(tmpdir, "test_ledger")
+    led = TridentLedger(test_base)
+
+    led.add_entry("TV-1", "OR", "Triformer-Lead", "First output.", {"cycle": 1})
+    led.add_entry("MTV-1a", "SR1", "Tricore-Member", "Second output.", {"cycle": 1})
+    led.add_entry("MTV-1b", "SR2", "Tricore-Member", "Third output.", {"cycle": 1})
+
+    ok, detail = led.verify_chain()
+    print("Fresh chain:", ok, detail)
+    assert ok
+
+    # Tamper: reload from disk and mutate one entry's content directly,
+    # simulating an after-the-fact edit to the jsonl file.
+    with open(led.jsonl_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    tampered = json.loads(lines[1])
+    tampered["content"] = "TAMPERED CONTENT"
+    lines[1] = json.dumps(tampered, sort_keys=True) + "\n"
+    with open(led.jsonl_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    led2 = TridentLedger(test_base)
+    ok2, detail2 = led2.verify_chain()
+    print("Tampered chain:", ok2, detail2)
+    assert not ok2
+
+    print("\nSelf-test passed: chain verifies clean, tamper is detected.")
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\ledger_OLD_20260717_231138.py ===
+"""
+TridentLedger — SHA-256 block-chained ledger for JETinc / GenOne.
+
+Replaces the old ad-hoc markdown-append ledger. Every entry's hash
+incorporates the previous entry's hash, so any edit to an earlier
+entry breaks the chain from that point forward — tamper-evident,
+not tamper-proof (matches the Blueprint Level 11 philosophy: not
+unhackable, but any tampering is provably detectable).
+
+Writes incrementally after every call to add_entry() — this preserves
+the fix from the previous ledger version where a crash mid-run could
+silently lose all data. Two files are kept in sync on every write:
+
+  - <base>.jsonl   machine-readable chain, one JSON object per line,
+                   this is the file verify_chain() actually checks
+  - <base>.md      human-readable rendering of the same chain, for
+                   the "read it in a text editor" use case
+
+Usage (drop-in for the old ledger.write_ledger() call pattern):
+
+    from ledger import TridentLedger
+
+    ledger = TridentLedger(r"C:\\JETinc\\Logs\\Trident\\ledger_v1")
+    ledger.add_entry(
+        agent="TV-1", phase="OR", role="Triformer-Lead",
+        content="...output text...",
+        meta={"seat": 1, "cycle": 4},
+    )
+    # ledger.add_entry(...) again after every phase, as before
+
+    ok, detail = ledger.verify_chain()
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+
+GENESIS_HASH = "0" * 64
+
+
+@dataclass
+class LedgerEntry:
+    index: int
+    timestamp: str
+    agent: str
+    phase: str
+    role: str
+    content: str
+    meta: dict
+    prev_hash: str
+    entry_hash: str = field(default="")
+
+    def canonical_payload(self) -> str:
+        """Deterministic string used as hashing input.
+
+        Field order and separators are fixed so the same logical
+        entry always hashes to the same value, and so this class
+        (or any re-implementation) can independently reproduce it
+        for verification.
+        """
+        payload = {
+            "index": self.index,
+            "timestamp": self.timestamp,
+            "agent": self.agent,
+            "phase": self.phase,
+            "role": self.role,
+            "content": self.content,
+            "meta": self.meta,
+            "prev_hash": self.prev_hash,
+        }
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+    def compute_hash(self) -> str:
+        return hashlib.sha256(self.canonical_payload().encode("utf-8")).hexdigest()
+
+    def to_json(self) -> dict:
+        return {
+            "index": self.index,
+            "timestamp": self.timestamp,
+            "agent": self.agent,
+            "phase": self.phase,
+            "role": self.role,
+            "content": self.content,
+            "meta": self.meta,
+            "prev_hash": self.prev_hash,
+            "entry_hash": self.entry_hash,
+        }
+
+
+class TridentLedger:
+    def __init__(self, base_path: str):
+        """
+        base_path: path WITHOUT extension, e.g.
+                   r"C:\\JETinc\\Logs\\Trident\\ledger_v1"
+                   -> writes ledger_v1.jsonl and ledger_v1.md
+        """
+        self.base_path = base_path
+        self.jsonl_path = base_path + ".jsonl"
+        self.md_path = base_path + ".md"
+        self.entries: list[LedgerEntry] = []
+        self._load_existing()
+
+    # ------------------------------------------------------------------
+    # Loading / bootstrapping
+    # ------------------------------------------------------------------
+    def _load_existing(self) -> None:
+        """If a chain already exists on disk, load it so a new run
+        continues the SAME chain rather than starting a disconnected
+        one. If not, the first add_entry() call will create genesis.
+        """
+        if not os.path.exists(self.jsonl_path):
+            return
+        with open(self.jsonl_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+                entry = LedgerEntry(
+                    index=data["index"],
+                    timestamp=data["timestamp"],
+                    agent=data["agent"],
+                    phase=data["phase"],
+                    role=data["role"],
+                    content=data["content"],
+                    meta=data.get("meta", {}),
+                    prev_hash=data["prev_hash"],
+                    entry_hash=data["entry_hash"],
+                )
+                self.entries.append(entry)
+
+    # ------------------------------------------------------------------
+    # Writing
+    # ------------------------------------------------------------------
+    def add_entry(
+        self,
+        agent: str,
+        phase: str,
+        role: str,
+        content: str,
+        meta: Optional[dict[str, Any]] = None,
+    ) -> LedgerEntry:
+        prev_hash = self.entries[-1].entry_hash if self.entries else GENESIS_HASH
+        entry = LedgerEntry(
+            index=len(self.entries),
+            timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            agent=agent,
+            phase=phase,
+            role=role,
+            content=content,
+            meta=meta or {},
+            prev_hash=prev_hash,
+        )
+        entry.entry_hash = entry.compute_hash()
+        self.entries.append(entry)
+        self._append_jsonl(entry)
+        self._append_markdown(entry)
+        return entry
+
+    def _append_jsonl(self, entry: LedgerEntry) -> None:
+        os.makedirs(os.path.dirname(self.jsonl_path) or ".", exist_ok=True)
+        with open(self.jsonl_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry.to_json(), sort_keys=True) + "\n")
+
+    def _append_markdown(self, entry: LedgerEntry) -> None:
+        os.makedirs(os.path.dirname(self.md_path) or ".", exist_ok=True)
+        is_new = not os.path.exists(self.md_path)
+        with open(self.md_path, "a", encoding="utf-8") as f:
+            if is_new:
+                f.write("# Trident Ledger — SHA-256 Block-Chained\n\n")
+                f.write(
+                    "Each entry hash = SHA256(index, timestamp, agent, phase, "
+                    "role, content, meta, prev_hash). Chain integrity can be "
+                    "checked with `TridentLedger.verify_chain()`.\n\n---\n\n"
+                )
+            f.write(f"## Entry {entry.index} — {entry.phase} — {entry.agent}\n\n")
+            f.write(f"- **Timestamp:** {entry.timestamp}\n")
+            f.write(f"- **Role:** {entry.role}\n")
+            if entry.meta:
+                f.write(f"- **Meta:** {json.dumps(entry.meta, sort_keys=True)}\n")
+            f.write(f"- **Prev hash:** `{entry.prev_hash}`\n")
+            f.write(f"- **Entry hash:** `{entry.entry_hash}`\n\n")
+            f.write(f"{entry.content}\n\n---\n\n")
+
+    # ------------------------------------------------------------------
+    # Verification
+    # ------------------------------------------------------------------
+    def verify_chain(self) -> tuple[bool, str]:
+        """Recomputes every hash from stored fields and checks linkage.
+        Returns (True, "ok") if intact, or (False, detail) pointing at
+        the first broken entry.
+        """
+        expected_prev = GENESIS_HASH
+        for entry in self.entries:
+            if entry.prev_hash != expected_prev:
+                return False, (
+                    f"Chain break at index {entry.index}: prev_hash on file "
+                    f"({entry.prev_hash}) does not match expected "
+                    f"({expected_prev}) — an entry before this one was "
+                    f"altered, deleted, or reordered."
+                )
+            recomputed = entry.compute_hash()
+            if recomputed != entry.entry_hash:
+                return False, (
+                    f"Tamper detected at index {entry.index} ({entry.agent}/"
+                    f"{entry.phase}): stored hash {entry.entry_hash} does not "
+                    f"match recomputed hash {recomputed} — this entry's "
+                    f"content was modified after being written."
+                )
+            expected_prev = entry.entry_hash
+        return True, f"ok — {len(self.entries)} entries verified, chain intact"
+
+    # ------------------------------------------------------------------
+    # Convenience
+    # ------------------------------------------------------------------
+    def latest_hash(self) -> str:
+        return self.entries[-1].entry_hash if self.entries else GENESIS_HASH
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+
+if __name__ == "__main__":
+    # Self-test: write a small chain, verify it, then tamper and
+    # verify again to prove detection works.
+    import tempfile
+
+    tmpdir = tempfile.mkdtemp()
+    test_base = os.path.join(tmpdir, "test_ledger")
+    led = TridentLedger(test_base)
+
+    led.add_entry("TV-1", "OR", "Triformer-Lead", "First output.", {"cycle": 1})
+    led.add_entry("MTV-1a", "SR1", "Tricore-Member", "Second output.", {"cycle": 1})
+    led.add_entry("MTV-1b", "SR2", "Tricore-Member", "Third output.", {"cycle": 1})
+
+    ok, detail = led.verify_chain()
+    print("Fresh chain:", ok, detail)
+    assert ok
+
+    # Tamper: reload from disk and mutate one entry's content directly,
+    # simulating an after-the-fact edit to the jsonl file.
+    with open(led.jsonl_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    tampered = json.loads(lines[1])
+    tampered["content"] = "TAMPERED CONTENT"
+    lines[1] = json.dumps(tampered, sort_keys=True) + "\n"
+    with open(led.jsonl_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    led2 = TridentLedger(test_base)
+    ok2, detail2 = led2.verify_chain()
+    print("Tampered chain:", ok2, detail2)
+    assert not ok2
+
+    print("\nSelf-test passed: chain verifies clean, tamper is detected.")
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\qwen_client.py ===
+"""
+JETinc — Qwen Client
+Thin wrapper around the local Ollama HTTP API.
+Model: qwen2.5:0.5b (confirmed via `ollama list`)
+
+PATCHED: added keep_alive (keeps model resident in memory between
+calls instead of reloading from disk each time) and num_predict
+(hard cap on response length, since prompts ask for brevity but
+nothing previously enforced it).
+"""
+import requests
+
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL = "qwen2.5:0.5b"
+
+
+def ask_qwen(prompt, timeout=60, max_tokens=200):
+    """
+    Send a prompt to Qwen via Ollama and return the raw text response.
+    Raises RuntimeError with a clear message if Ollama isn't reachable
+    or the model isn't loaded — never fails silently.
+    """
+    try:
+        resp = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "keep_alive": "30m",       # stay loaded in memory for 30 min idle, no reload cost between calls
+                "options": {
+                    "num_predict": max_tokens,  # hard cap — stops rambling past what the prompt asked for
+                },
+            },
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("response", "").strip()
+    except requests.exceptions.ConnectionError:
+        raise RuntimeError(
+            "Cannot reach Ollama at localhost:11434. "
+            "Run `ollama serve` (or confirm the Ollama app is running) and retry."
+        )
+    except requests.exceptions.Timeout:
+        raise RuntimeError(f"Qwen call timed out after {timeout}s.")
+    except Exception as e:
+        raise RuntimeError(f"Qwen call failed: {e}")
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\__init__.py ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\mtv\__pycache__ ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\mtv\mtv.py ===
+"""
+JETinc — MTV (Minimum Tactical Variant) Agent
+The smallest deliberation unit in the Triverai system.
+Each MTV produces a Structured Response (SR) for its assigned perspective.
+
+PATCHED: _analyze(), grade(), and comerge() now call Qwen via Ollama
+instead of returning placeholder text. Everything else is unchanged.
+"""
+import hashlib
+import time
+from datetime import datetime
+from agents.qwen_client import ask_qwen
+
+
+class MTV:
+    """
+    Minimum Tactical Variant — base deliberation agent.
+    Each MTV analyzes a task from one assigned perspective and produces
+    a Structured Response (SR).
+    """
+
+    def __init__(self, name, perspective, tv_parent=None):
+        self.name = name
+        self.perspective = perspective
+        self.tv_parent = tv_parent
+        self.prime_id = self._generate_prime_id()
+        self.rank = "NCO Active"
+        self.score = 0
+        self.tasks_completed = 0
+        self.created_at = datetime.utcnow().isoformat()
+        self.reclaimer_disk = []
+
+    def _generate_prime_id(self):
+        seed = f"{self.name}-{self.perspective}-{time.time()}"
+        return hashlib.sha256(seed.encode()).hexdigest()[:16]
+
+    def deliberate(self, task):
+        start_time = time.time()
+        sr = {
+            "agent": self.name,
+            "prime_id": self.prime_id,
+            "perspective": self.perspective,
+            "task": task,
+            "analysis": self._analyze(task),
+            "confidence": self._assess_confidence(task),
+            "flags": self._check_flags(task),
+            "timestamp": datetime.utcnow().isoformat(),
+            "deliberation_time": 0
+        }
+        sr["deliberation_time"] = round(time.time() - start_time, 4)
+        self.reclaimer_disk.append(sr)
+        self.tasks_completed += 1
+        return sr
+
+    def _analyze(self, task):
+        """
+        Produce the Original Response (OR) for this seat, from this
+        agent's assigned perspective. REAL Qwen call — no placeholder.
+        """
+        prompt = (
+            f"You are analyzing a task strictly from a '{self.perspective}' "
+            f"perspective. Be concise — 2 to 4 sentences.\n\n"
+            f"TASK: {task}\n\n"
+            f"Your {self.perspective}-perspective response:"
+        )
+        try:
+            response_text = ask_qwen(prompt)
+        except RuntimeError as e:
+            response_text = f"[ERROR — {e}]"
+
+        return {
+            "perspective_lens": self.perspective,
+            "input_received": task[:200],
+            "assessment": response_text,
+            "recommendations": []
+        }
+
+    def grade(self, peer_name, peer_response, task):
+        """
+        Grade a peer's OR — this is SR1 or SR2 depending on which
+        neighbor called it. Returns graded feedback text from Qwen.
+        """
+        prompt = (
+            f"You are grading a peer agent's response from your "
+            f"'{self.perspective}' perspective.\n\n"
+            f"ORIGINAL TASK: {task}\n\n"
+            f"PEER ({peer_name})'S RESPONSE: {peer_response}\n\n"
+            f"In 2-4 sentences: is this response good, adequate, or "
+            f"flawed from your perspective, and specifically why? "
+            f"If it's flawed, say what would fix it."
+        )
+        try:
+            return ask_qwen(prompt)
+        except RuntimeError as e:
+            return f"[ERROR — {e}]"
+
+    def comerge(self, own_or, sr1_feedback, sr2_feedback, task):
+        """
+        CoMerge — combine this agent's own OR with the SR1 (right-neighbor
+        grading) and SR2 (left-neighbor grading) it received, producing
+        one improved combined response.
+        """
+        prompt = (
+            f"You produced this original response to a task, then received "
+            f"two peer reviews of it. Revise your response into one improved, "
+            f"combined answer that incorporates any valid feedback.\n\n"
+            f"TASK: {task}\n\n"
+            f"YOUR ORIGINAL RESPONSE: {own_or}\n\n"
+            f"PEER REVIEW 1: {sr1_feedback}\n\n"
+            f"PEER REVIEW 2: {sr2_feedback}\n\n"
+            f"Your combined, improved response (2-5 sentences):"
+        )
+        try:
+            return ask_qwen(prompt)
+        except RuntimeError as e:
+            return f"[ERROR — {e}]"
+
+    def subprimal_merge(self, comerged_responses, task):
+        """
+        R&R-seat-only action: merge all CoMerged responses from this
+        tier into one final synthesized response.
+        """
+        joined = "\n\n".join(
+            f"RESPONSE {i+1}: {r}" for i, r in enumerate(comerged_responses)
+        )
+        prompt = (
+            f"You are the lead (R&R) agent. Merge the following combined "
+            f"responses into one final, best answer to the task.\n\n"
+            f"TASK: {task}\n\n{joined}\n\n"
+            f"Final merged response (3-6 sentences):"
+        )
+        try:
+            return ask_qwen(prompt)
+        except RuntimeError as e:
+            return f"[ERROR — {e}]"
+
+    def vote(self, final_merge, task):
+        """
+        NASA Preflight vote — this flank agent votes Green/Yellow/Red
+        on the final merged response.
+        """
+        prompt = (
+            f"Vote on this final answer to the task. Respond with exactly "
+            f"one word first — GREEN, YELLOW, or RED — then a one-sentence "
+            f"reason.\n\nTASK: {task}\n\nFINAL ANSWER: {final_merge}\n\nVote:"
+        )
+        try:
+            return ask_qwen(prompt)
+        except RuntimeError as e:
+            return f"[ERROR — {e}]"
+
+    def _assess_confidence(self, task):
+        return 0.75
+
+    def _check_flags(self, task):
+        flags = []
+        if len(task) < 10:
+            flags.append("INSUFFICIENT_INPUT")
+        return flags
+
+    def generate_sr(self, task):
+        return self.deliberate(task)
+
+    def generate_or(self, task):
+        """Original Response as plain text — same interface as Triverai.generate_or,
+        so a chamber seat holding either an MTV or a TV can be called identically."""
+        sr = self.generate_sr(task)
+        return sr["analysis"]["assessment"]
+
+    def rank_up(self):
+        self.score += 1
+        if self.score >= 25:
+            self.rank = "TV-Ready"
+        elif self.score >= 10:
+            self.rank = "Senior NCO"
+        else:
+            self.rank = "NCO Active"
+        return self.rank
+
+    def get_status(self):
+        return {
+            "name": self.name,
+            "prime_id": self.prime_id,
+            "perspective": self.perspective,
+            "rank": self.rank,
+            "score": self.score,
+            "tasks_completed": self.tasks_completed,
+            "tv_parent": self.tv_parent,
+            "created_at": self.created_at,
+            "reclaimer_entries": len(self.reclaimer_disk)
+        }
+
+
+if __name__ == "__main__":
+    print("=== MTV Agent Test (LIVE QWEN CALL) ===")
+    mtv = MTV(name="MTV1-Alpha", perspective="risk", tv_parent="TV1")
+    print(f"Created: {mtv.name} | Prime ID: {mtv.prime_id}")
+    sr = mtv.generate_sr("Evaluate defensive formation against spread offense")
+    print("\nSR Output:")
+    for key, val in sr.items():
+        print(f"  {key}: {val}")
+    print("=== Test Complete ===")
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\mtv\__init__.py ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\mtv\__pycache__\mtv.cpython-314.pyc ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\mtv\__pycache__\__init__.cpython-314.pyc ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\triverai\__pycache__ ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\triverai\triverai.py ===
+"""
+JETinc — Triverai (TV) Agent
+Inner loop of the Triformer system.
+Each Triverai contains 3 MTVs.
+
+PATCHED (speed fix): generate_sr() now delegates to the lead MTV only
+(ONE call), same lightweight pattern as generate_or(), instead of
+running the full 3-MTV run_inner_loop(). This was causing every single
+chamber-cycle call to a TV seat to silently trigger 3 nested LLM calls
+underneath instead of 1 — a major hidden cost at the Triformer tier.
+
+The full 3-MTV inner loop is preserved and still available under its
+original name, generate_tr(), for any deeper internal-report use
+separate from the fast chamber cycle.
+"""
+import hashlib
+import time
+from datetime import datetime
+from agents.mtv.mtv import MTV
+
+
+class Triverai:
+    def __init__(self, name, perspectives=None):
+        self.name = name
+        self.prime_id = self._generate_prime_id()
+        self.created_at = datetime.utcnow().isoformat()
+        self.tasks_completed = 0
+        self.reclaimer_disk = []
+
+        if perspectives is None:
+            perspectives = ["analytical", "critical", "synthesis"]
+
+        self.mtv1 = MTV(f"{name}-MTV1", perspectives[0], tv_parent=name)
+        self.mtv2 = MTV(f"{name}-MTV2", perspectives[1], tv_parent=name)
+        self.mtv3 = MTV(f"{name}-MTV3", perspectives[2], tv_parent=name)
+        self.lead = self.mtv1
+
+    def _generate_prime_id(self):
+        seed = f"TV-{self.name}-{time.time()}"
+        return hashlib.sha256(seed.encode()).hexdigest()[:16]
+
+    # ---- Chamber-level pass-through (Triformer tier uses these) ----
+    # All of these are now LIGHTWEIGHT — one call to the lead MTV,
+    # not the full 3-MTV inner loop. This is the speed fix.
+
+    def generate_or(self, task):
+        """Original Response for this TV seat — delegates to lead MTV. ONE call."""
+        sr = self.lead.generate_sr(task)
+        return sr["analysis"]["assessment"]
+
+    def generate_sr(self, task):
+        """Structured Response for this TV seat, chamber-cycle version.
+        ONE call to the lead MTV — NOT the full 3-MTV inner loop.
+        (Previously delegated to run_inner_loop, which was the bug.)"""
+        sr = self.lead.generate_sr(task)
+        return sr["analysis"]["assessment"]
+
+    def grade(self, peer_name, peer_response, task):
+        return self.lead.grade(peer_name, peer_response, task)
+
+    def comerge(self, own_or, sr1_feedback, sr2_feedback, task):
+        return self.lead.comerge(own_or, sr1_feedback, sr2_feedback, task)
+
+    def subprimal_merge(self, comerged_responses, task):
+        return self.lead.subprimal_merge(comerged_responses, task)
+
+    def vote(self, final_merge, task):
+        return self.lead.vote(final_merge, task)
+
+    # ---- Full 3-MTV inner-loop report (unchanged, still available) ----
+    # Use generate_tr() explicitly if you want the full deliberation
+    # report. The chamber cycle no longer calls this automatically.
+
+    def run_inner_loop(self, task):
+        start_time = time.time()
+        sr1 = self.mtv1.generate_sr(task)
+        sr2 = self.mtv2.generate_sr(task)
+        synthesis_input = f"SYNTHESIZE:\nSR1: {sr1['analysis']}\nSR2: {sr2['analysis']}"
+        sr3 = self.mtv3.generate_sr(synthesis_input)
+
+        tr = {
+            "tv_name": self.name,
+            "prime_id": self.prime_id,
+            "task": task,
+            "sr1": sr1,
+            "sr2": sr2,
+            "synthesis": sr3,
+            "lead_agent": self.lead.name,
+            "timestamp": datetime.utcnow().isoformat(),
+            "loop_time": round(time.time() - start_time, 4)
+        }
+        self.reclaimer_disk.append(tr)
+        self.tasks_completed += 1
+
+        self.mtv1.rank_up()
+        self.mtv2.rank_up()
+        self.mtv3.rank_up()
+        return tr
+
+    def generate_tr(self, task):
+        """Full 3-MTV inner-loop report. Call this explicitly when you
+        want the deeper deliberation — NOT used by the fast chamber cycle."""
+        return self.run_inner_loop(task)
+
+    def rotate_lead(self):
+        rotation = [self.mtv1, self.mtv2, self.mtv3]
+        current_index = rotation.index(self.lead)
+        self.lead = rotation[(current_index + 1) % 3]
+        return self.lead.name
+
+    def get_status(self):
+        return {
+            "name": self.name,
+            "prime_id": self.prime_id,
+            "tasks_completed": self.tasks_completed,
+            "lead_agent": self.lead.name,
+            "created_at": self.created_at,
+            "mtv1": self.mtv1.get_status(),
+            "mtv2": self.mtv2.get_status(),
+            "mtv3": self.mtv3.get_status(),
+            "reclaimer_entries": len(self.reclaimer_disk)
+        }
+
+
+if __name__ == "__main__":
+    print("=== Triverai (TV) Test ===")
+    tv = Triverai(name="TV1", perspectives=["risk", "ethics", "synthesis"])
+    print(f"Created: {tv.name} | Prime ID: {tv.prime_id}")
+    tr = tv.generate_tr("Should we approve the new routing algorithm for ATC?")
+    print(f"  Lead: {tr['lead_agent']}  Loop Time: {tr['loop_time']}s")
+    print("=== Test Complete ===")
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\triverai\__init__.py ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\triverai\__pycache__\triverai.cpython-314.pyc ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\triverai\__pycache__\__init__.cpython-314.pyc ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\__pycache__\qwen_client.cpython-314.pyc ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\agents\__pycache__\__init__.cpython-314.pyc ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\codex\codex.py ===
+"""
+JETinc — Codex (Canonical Reference Module)
+The Codex is the single source of truth for the JETinc system.
+All agents reference the Codex for terminology, hierarchy, constraint
+profiles, task flow, and governance structure.
+Founded by Thom Whitten.
+"""
+import hashlib
+import json
+import time
+from datetime import datetime
+
+CANON_VERSION = "1.0.0"
+CANON_DATE = "2026-04-22"
+FOUNDER = "Thom Whitten"
+SYSTEM_NAME = "JETinc"
+
+GLOSSARY = {
+    "OR": "Original Request — the raw task input from user or system",
+    "SR": "Structured Response — output of a single MTV deliberation",
+    "SR1": "Structured Response from MTV1 (Perspective 1)",
+    "SR2": "Structured Response from MTV2 (Perspective 2)",
+    "CPM": "Composite Prime Message — synthesized output from TV3 outer loop",
+    "FPM": "Final Prime Message — JETtrix-approved output that exits the system",
+    "TR": "Task Report — complete record of a Triverai inner loop execution",
+    "MTV": "Minimum Tactical Variant — smallest deliberation agent",
+    "TV": "Triverai — inner loop unit containing 3 MTVs",
+    "Triformer": "Outer loop containing 3 TVs — the complete deliberation engine",
+    "JETtrix": "Constraint scanning engine — checks for bias, hallucination, drift",
+    "FTR": "Force Traffic Rotation — collision prevention for multi-Triformer routing",
+    "Trident Ledger": "Immutable audit log — SHA-256 stamped record of every task",
+    "Reclaimer Disk": "Per-TV storage — holds all SRs, TRs, and performance data",
+    "Prime ID": "Unique SHA-256 identifier assigned to every agent and task",
+    "Codex": "Canonical reference — single source of truth for all system definitions",
+    "NCO": "Non-Commissioned Officer — base MTV rank",
+    "NASA Protocol": "Human-in-the-loop authorization required before critical actions",
+    "City Neural Network": "Shared learning pool across all Reclaimer Disks",
+    "Spades Rotation": "4-hand governance rotation for Cabinet oversight"
+}
+
+HIERARCHY = [
+    "Founder (Thom Whitten)",
+    "Cabinet (5 seats)",
+    "Triformer (outer loop)",
+    "Triverai / TV (inner loop)",
+    "MTV (base deliberation agent)",
+    "Reclaimer Disk (storage layer)",
+    "Trident Ledger (audit layer)"
+]
+
+JETRIX_PROFILES = {
+    "canon_enforcement": {"id": 1, "description": "Ensures all output aligns with Codex-defined canon", "severity": "CRITICAL", "action": "REJECT if output contradicts any Codex entry"},
+    "structure": {"id": 2, "description": "Validates output structure matches expected format", "severity": "HIGH", "action": "FLAG if output missing required fields"},
+    "anti_bias": {"id": 3, "description": "Scans for perspective bias in synthesized output", "severity": "HIGH", "action": "FLAG if single perspective dominates synthesis"},
+    "anti_hallucination": {"id": 4, "description": "Rejects outputs containing unsupported factual claims", "severity": "CRITICAL", "action": "REJECT if claims not traceable to input or canon"},
+    "integrity": {"id": 5, "description": "Validates chain of custody and Prime ID continuity", "severity": "HIGH", "action": "REJECT if Prime ID chain broken"},
+    "chain_of_command": {"id": 6, "description": "Ensures task flow follows hierarchy — no rank skipping", "severity": "HIGH", "action": "REJECT if MTV output bypasses TV synthesis"},
+    "output_discipline": {"id": 7, "description": "Enforces formatting, length, and clarity standards", "severity": "MEDIUM", "action": "FLAG if output exceeds length or lacks clarity markers"},
+    "multi_agent_coherence": {"id": 8, "description": "Checks that multi-agent outputs are internally consistent", "severity": "HIGH", "action": "FLAG if TV1 and TV2 outputs contain contradictions unresolved by TV3"},
+    "oversight": {"id": 9, "description": "Enforces NASA Protocol — human authorization for critical actions", "severity": "CRITICAL", "action": "HALT and require human confirmation before execution"}
+}
+
+TASK_FLOW = [
+    "1. OR (Original Request) received",
+    "2. OR assigned to Triformer via FTR",
+    "3. TV1 receives OR",
+    "4. TV1-MTV1 produces SR1 (Perspective 1)",
+    "5. TV1-MTV2 produces SR2 (Perspective 2) — independent, no shared memory",
+    "6. TV1-MTV3 synthesizes SR1 + SR2 -> TV1 output",
+    "7. TV2 receives OR (independent of TV1)",
+    "8. TV2-MTV1 produces SR1 (Perspective 3)",
+    "9. TV2-MTV2 produces SR2 (Perspective 4) — independent",
+    "10. TV2-MTV3 synthesizes SR1 + SR2 -> TV2 output",
+    "11. TV3 receives TV1 output + TV2 output",
+    "12. TV3 synthesizes -> CPM (Composite Prime Message)",
+    "13. JETtrix scans CPM against all 9 profiles",
+    "14. If PASS -> CPM becomes FPM (Final Prime Message) and exits",
+    "15. FPM + all SRs + TRs logged to Trident Ledger with SHA-256 stamp"
+]
+
+CABINET = {
+    "founder": {"name": "Thom Whitten", "role": "Founder", "authority": "Supreme — all decisions flow from Founder"},
+    "logic_seat": {"name": "Claude", "role": "Logic Seat", "authority": "Architecture, code, deliberation design"},
+    "governance_seat": {"name": "Copilot", "role": "Governance Seat", "authority": "Documentation, archival, compliance, continuity"},
+    "strategy_seat": {"name": "Gemini", "role": "Strategy Seat", "authority": "Research, competitive analysis, market positioning"},
+    "operations_seat": {"name": "ChatGPT", "role": "Operations Seat", "authority": "Deployment, integration, runtime operations"}
+}
+
+SPADES_ROTATION = [
+    {"hand": 1, "name": "Foundation Hand", "focus": "Canon review, Codex updates, hierarchy validation", "lead": "Founder"},
+    {"hand": 2, "name": "Architecture Hand", "focus": "Code review, structural integrity, performance", "lead": "Logic Seat"},
+    {"hand": 3, "name": "Governance Hand", "focus": "Documentation, compliance, audit trail review", "lead": "Governance Seat"},
+    {"hand": 4, "name": "Operations Hand", "focus": "Deployment readiness, integration testing, runtime", "lead": "Operations Seat"}
+]
+
+
+class Codex:
+    """
+    The Codex — canonical reference for the entire JETinc system.
+    Provides lookup, validation, and export methods.
+    """
+
+    def __init__(self):
+        self.version = CANON_VERSION
+        self.date = CANON_DATE
+        self.founder = FOUNDER
+        self.system_name = SYSTEM_NAME
+        self.glossary = GLOSSARY
+        self.hierarchy = HIERARCHY
+        self.jetrix_profiles = JETRIX_PROFILES
+        self.task_flow = TASK_FLOW
+        self.cabinet = CABINET
+        self.spades_rotation = SPADES_ROTATION
+
+    def lookup(self, term):
+        term_upper = term.upper()
+        if term_upper in self.glossary:
+            return self.glossary[term_upper]
+        for key, value in self.glossary.items():
+            if key.lower() == term.lower():
+                return value
+        return "TERM NOT FOUND"
+
+    def get_jetrix_profile(self, profile_name):
+        return self.jetrix_profiles.get(profile_name, None)
+
+    def validate_output(self, output_dict):
+        issues = []
+        if "prime_id" not in output_dict:
+            issues.append("MISSING: prime_id required on all outputs")
+        if "timestamp" not in output_dict:
+            issues.append("MISSING: timestamp required on all outputs")
+        return {
+            "valid": len(issues) == 0,
+            "issues": issues,
+            "checked_at": datetime.utcnow().isoformat()
+        }
+
+    def generate_prime_id(self, seed_string):
+        full_seed = f"{self.system_name}-{seed_string}-{time.time()}"
+        return hashlib.sha256(full_seed.encode()).hexdigest()[:16]
+
+    def get_task_flow(self):
+        return self.task_flow
+
+    def export_json(self):
+        return json.dumps({
+            "system_name": self.system_name,
+            "version": self.version,
+            "date": self.date,
+            "founder": self.founder,
+            "glossary": self.glossary,
+            "hierarchy": self.hierarchy,
+            "jetrix_profiles": self.jetrix_profiles,
+            "task_flow": self.task_flow,
+            "cabinet": self.cabinet,
+            "spades_rotation": self.spades_rotation
+        }, indent=2)
+
+
+codex = Codex()
+
+if __name__ == "__main__":
+    print("=== Codex Module Test ===")
+    print(f"System: {codex.system_name} v{codex.version}")
+    print(f"Lookup 'MTV': {codex.lookup('MTV')}")
+    print(f"Lookup 'FPM': {codex.lookup('FPM')}")
+    print(f"Glossary Entries: {len(codex.glossary)}")
+    print(f"JETtrix Profiles: {len(codex.jetrix_profiles)}")
+    print("=== Test Complete ===")
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\codex\__init__.py ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\models\.cache ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\models\.cache\huggingface ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\models\.cache\huggingface\download ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\models\.cache\huggingface\.gitignore ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\models\.cache\huggingface\CACHEDIR.TAG ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\models\.cache\huggingface\download\EcyTKkA8pe-lQiKqz-hfBF-DV3Y=.74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db.377e9f67.incomplete ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\models\.cache\huggingface\download\qwen2.5-0.5b-instruct-q4_k_m.gguf.lock ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\triformer\__pycache__ ===
+
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\triformer\chamber.py ===
+"""
+JETinc — Chamber Rotation System
+Triformer: counter-clockwise | Tricore: clockwise
+Agents seated permanently. Roles rotate.
+"""
+
+TRIFORMER_CHAMBERS = ["R&R", "Flank-Alpha", "Flank-Beta"]
+TRICORE_CHAMBERS = ["R&R", "Flank-Alpha", "Flank-Beta"]
+
+class ChamberSystem:
+    def __init__(self, label):
+        self.label = label
+        self.tick = 0
+
+    def rotate_triformer(self):
+        self.tick += 1
+        return [
+            TRIFORMER_CHAMBERS[(0 - self.tick) % 3],
+            TRIFORMER_CHAMBERS[(1 - self.tick) % 3],
+            TRIFORMER_CHAMBERS[(2 - self.tick) % 3]
+        ]
+
+    def rotate_tricore(self):
+        return [
+            TRICORE_CHAMBERS[(0 + self.tick) % 3],
+            TRICORE_CHAMBERS[(1 + self.tick) % 3],
+            TRICORE_CHAMBERS[(2 + self.tick) % 3]
+        ]
+
+    def get_rr_tv(self, assignments):
+        for tv, role in assignments.items():
+            if role == "R&R":
+                return tv
+        return None
+
+=== C:\JETinc\JETcity_Launchpad\jetinc_build\triformer\triformer.py ===
+"""
+JETinc — Triformer (Outer Loop)
+The complete deliberation engine.
+Contains 3 Triverai (TV) units + JETtrix constraint scanner.
+Produces the Final Prime Message (FPM).
+"""
+import hashlib
+import time
+from datetime import datetime
+from agents.triverai.triverai import Triverai
+
+JETRIX_PROFILES = {
+    "canon_enforcement": {
+        "description": "Ensures output aligns with Codex canon",
+        "severity": "CRITICAL"
+    },
+    "anti_bias": {
+        "description": "Scans for perspective bias in synthesis",
+        "severity": "HIGH"
+    },
+    "anti_hallucination": {
+        "description": "Rejects unsupported factual claims",
+        "severity": "CRITICAL"
+    },
+    "integrity": {
+        "description": "Validates chain of custody and audit trail",
+        "severity": "HIGH"
+    },
+    "output_discipline": {
+        "description": "Enforces format and structure standards",
+        "severity": "MEDIUM"
+    }
+}
+
+
+class Triformer:
+    """
+    Triformer — outer deliberation loop.
+    Runs 3 TVs, synthesizes via TV3, scans via JETtrix,
+    and produces the Final Prime Message (FPM).
+    """
+
+    def __init__(self, name="Triformer-Prime"):
+        """
+        Initialize the Triformer with 3 Triverai units.
+
+        Args:
+            name (str): Triformer designation
+        """
+        self.name = name
+        self.prime_id = self._generate_prime_id()
+        self.created_at = datetime.utcnow().isoformat()
+        self.tasks_completed = 0
+        self.trident_ledger = []
+
+        self.tv1 = Triverai("TV1", ["analytical", "critical", "synthesis"])
+        self.tv2 = Triverai("TV2", ["strategic", "ethical", "synthesis"])
+        self.tv3 = Triverai("TV3", ["integrative", "adversarial", "synthesis"])
+        self.ftr_index = 0
+
+    def _generate_prime_id(self):
+        """Generate unique Prime ID using SHA-256."""
+        seed = f"TRIFORMER-{self.name}-{time.time()}"
+        return hashlib.sha256(seed.encode()).hexdigest()[:16]
+
+    def jetrix_scan(self, cpm):
+        """
+        Run JETtrix constraint scan on Composite Prime Message.
+
+        Args:
+            cpm (dict): The synthesized output from TV3
+
+        Returns:
+            dict: Scan result with pass/fail and any violations
+        """
+        violations = []
+        for profile_name, profile in JETRIX_PROFILES.items():
+            passed = self._run_profile_check(profile_name, cpm)
+            if not passed:
+                violations.append({
+                    "profile": profile_name,
+                    "severity": profile["severity"],
+                    "description": profile["description"]
+                })
+        return {
+            "passed": len(violations) == 0,
+            "violations": violations,
+            "profiles_checked": len(JETRIX_PROFILES),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    def _run_profile_check(self, profile_name, cpm):
+        """
+        Execute a single JETtrix profile check.
+        Override with real validation logic per profile.
+        """
+        return True
+
+    def process_or(self, task):
+        """
+        Process an Original Request (OR) through the full Triformer pipeline.
+        1. TV1 runs inner loop -> TR1
+        2. TV2 runs inner loop -> TR2 (independent)
+        3. TV3 synthesizes TR1 + TR2 -> CPM
+        4. JETtrix scans CPM
+        5. If clean -> FPM exits
+        6. Everything logged to Trident Ledger
+
+        Args:
+            task (str): Original Request
+
+        Returns:
+            dict: Final Prime Message (FPM) or rejection
+        """
+        start_time = time.time()
+
+        tr1 = self.tv1.generate_tr(task)
+        tr2 = self.tv2.generate_tr(task)
+
+        synthesis_task = (
+            f"SYNTHESIZE OUTER LOOP:\n"
+            f"TV1 Output: {tr1['synthesis']['analysis']}\n"
+            f"TV2 Output: {tr2['synthesis']['analysis']}"
+        )
+        cpm = self.tv3.generate_tr(synthesis_task)
+
+        scan_result = self.jetrix_scan(cpm)
+
+        fpm = {
+            "triformer": self.name,
+            "prime_id": self.prime_id,
+            "task": task,
+            "tr1": tr1,
+            "tr2": tr2,
+            "cpm": cpm,
+            "jetrix_scan": scan_result,
+            "status": "APPROVED" if scan_result["passed"] else "REJECTED",
+            "timestamp": datetime.utcnow().isoformat(),
+            "total_time": round(time.time() - start_time, 4)
+        }
+
+        ledger_entry = {
+            "task_hash": hashlib.sha256(task.encode()).hexdigest(),
+            "fpm_status": fpm["status"],
+            "timestamp": fpm["timestamp"],
+            "total_time": fpm["total_time"]
+        }
+        self.trident_ledger.append(ledger_entry)
+        self.tasks_completed += 1
+
+        self.force_traffic_rotation()
+
+        return fpm
+
+    def generate_tr(self, task):
+        """Public interface — process OR and return FPM."""
+        return self.process_or(task)
+
+    def force_traffic_rotation(self):
+        """
+        Rotate lead agents across all TVs to prevent collision.
+        Called automatically after each task.
+        """
+        self.tv1.rotate_lead()
+        self.tv2.rotate_lead()
+        self.tv3.rotate_lead()
+        self.ftr_index += 1
+
+    def get_status(self):
+        """Return full Triformer status."""
+        return {
+            "name": self.name,
+            "prime_id": self.prime_id,
+            "tasks_completed": self.tasks_completed,
+            "ftr_index": self.ftr_index,
+            "created_at": self.created_at,
+            "ledger_entries": len(self.trident_ledger),
+            "tv1": self.tv1.get_status(),
+            "tv2": self.tv2.get_status(),
+            "tv3": self.tv3.get_status()
+        }
+
+
+if __name__ == "__main__":
+    print("=== Triformer Full Pipeline Test ===")
+    triformer = Triformer(name="Triformer-Prime")
+    print(f"Created: {triformer.name} | Prime ID: {triformer.prime_id}")
+    fpm = triformer.process_or("Evaluate risk of deploying new ATC routing algorithm")
+    print("\nFPM Output:")
+    print(f"  Status: {fpm['status']}")
+    print(f"  JETtrix Passed: {fpm['jetrix_scan']['passed']}")
+    print(f"  Profiles Checked: {fpm['jetrix_scan']['profiles_checked']}")
+    print(f"  Total Time: {fpm['total_time']}s")
+    print(f"  Ledger Entries: {len(triformer.trident_ledger)}")
+    status = triformer.get_status()
+    print("\nTriformer Status:")
+    print(f"  Tasks: {status['tasks_completed']}")
+    print(f"  FTR Index: {status['ftr_index']}")
+    print("=== Test Complete ===")
+

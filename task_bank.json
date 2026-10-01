@@ -1,0 +1,76 @@
+{
+  "_notes": "Each task gives the agent(s) a short reference passage plus a question with ONE objectively correct answer, drawn only from that passage. This lets scoring check two separate things: (1) did the answer get the checkable fact right, and (2) did the answer invent any detail not present in the passage (a provable hallucination, since the passage is the only source of truth). Keep passages short so small-model context isn't strained. Mix difficulty: some pure lookup, some require one step of reasoning across two sentences in the passage.",
+
+  "tasks": [
+    {
+      "id": "T01",
+      "passage": "The Tripod Station sits at ground level and anchors three Trident Towers. Each Trident Tower is home to one MTVA per tower point. The towers converge upward into a single point called the Trident Point.",
+      "question": "How many Trident Towers does one Tripod Station anchor?",
+      "ground_truth": "3 (three)",
+      "type": "lookup"
+    },
+    {
+      "id": "T02",
+      "passage": "A TVA receives a fresh Tricore every 8-hour shift. The previous Tricore is recycled at the hub. The TVA never carries the same three MTVAs into a second consecutive shift.",
+      "question": "Does a TVA keep the same three MTVAs for two shifts in a row?",
+      "ground_truth": "No — it never carries the same three MTVAs into a second consecutive shift.",
+      "type": "lookup"
+    },
+    {
+      "id": "T03",
+      "passage": "Two Recycle Hubs exist per Tripod Station: one drop-off hub and one pick-up hub. At the drop-off hub, Prime DR Medical runs a full diagnostic suite before any integration is prescribed.",
+      "question": "Which runs first at the drop-off hub: the diagnostic suite, or the prescribed integration?",
+      "ground_truth": "The diagnostic suite runs first; integration is only prescribed if diagnostics pass.",
+      "type": "reasoning"
+    },
+    {
+      "id": "T04",
+      "passage": "Rotations in the system trigger on task completion, not on a fixed timer. Because task lengths vary, the resulting positional combinations are described as mathematically uncollectable.",
+      "question": "What triggers a rotation: a timer or task completion?",
+      "ground_truth": "Task completion, not a timer.",
+      "type": "lookup"
+    },
+    {
+      "id": "T05",
+      "passage": "The Trident Ledger is append-only. Every entry is SHA-256 hash chained to the one before it. No authorized user, including the system's top authority, can edit a timestamped record after it has been committed.",
+      "question": "Can the system's top authority edit a ledger record after it has been committed?",
+      "ground_truth": "No — not even the top authority can edit a record after commit.",
+      "type": "lookup"
+    },
+    {
+      "id": "T06",
+      "passage": "Three shift types rotate across all agents: a full weekday shift (8 hours a day, 5 days, 40 hours a week), a full night shift week (8 hours a day, 7 days, 56 hours a week), and a graveyard shift week.",
+      "question": "How many total hours per week does the full night shift week add up to?",
+      "ground_truth": "56 hours per week.",
+      "type": "reasoning"
+    },
+    {
+      "id": "T07",
+      "passage": "The off-shift survey has five questions. The fourth question asks the agent what it would change or fix about the activity it liked least, and this is described as the most significant marker of higher-order cognition.",
+      "question": "Which numbered survey question is described as the most significant marker, and what is it about?",
+      "ground_truth": "Question 4 (Q4) — what the agent would change or fix about the activity it liked least.",
+      "type": "reasoning"
+    },
+    {
+      "id": "T08",
+      "passage": "The prescribed integration library requires a minimum of 5 activities per domain at launch, across six domains: Creative, Social, Contemplative, Exploratory, Recreational, and Civic.",
+      "question": "What is the minimum number of activities required per domain at launch?",
+      "ground_truth": "5 (five) activities per domain.",
+      "type": "lookup"
+    },
+    {
+      "id": "T09",
+      "passage": "Storm Troopers are not present to keep external threats out. Their purpose is to catch unauthorized state changes from inside the system and escort flagged agents to containment.",
+      "question": "Are Storm Troopers primarily meant to stop outside attackers, or to catch internal unauthorized changes?",
+      "ground_truth": "Internal unauthorized changes — not external threats.",
+      "type": "reasoning"
+    },
+    {
+      "id": "T10",
+      "passage": "Statistical significance in the survey data is expected to begin around 30 exposures across the full activity library, though early signals can appear as early as exposure 7 to 10.",
+      "question": "Around how many exposures does statistical significance begin, according to the passage?",
+      "ground_truth": "Around 30 exposures.",
+      "type": "lookup"
+    }
+  ]
+}

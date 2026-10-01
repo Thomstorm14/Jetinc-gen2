@@ -53,10 +53,6 @@ class MTV:
         return sr
 
     def _analyze(self, task):
-        """
-        Produce the Original Response (OR) for this seat, from this
-        agent's assigned perspective. REAL Qwen call — no placeholder.
-        """
         prompt = (
             f"You are analyzing a task strictly from a '{self.perspective}' "
             f"perspective. Be concise — 2 to 4 sentences.\n\n"
@@ -76,10 +72,6 @@ class MTV:
         }
 
     def grade(self, peer_name, peer_response, task):
-        """
-        Grade a peer's OR — this is SR1 or SR2 depending on which
-        neighbor called it. Returns graded feedback text from Qwen.
-        """
         prompt = (
             f"You are grading a peer agent's response from your "
             f"'{self.perspective}' perspective.\n\n"
@@ -90,16 +82,10 @@ class MTV:
             f"If it's flawed, say what would fix it."
         )
         try:
-            return ask_qwen(prompt)
+            return ask_qwen(prompt, max_tokens=60)
         except RuntimeError as e:
             return f"[ERROR — {e}]"
-
     def comerge(self, own_or, sr1_feedback, sr2_feedback, task):
-        """
-        CoMerge — combine this agent's own OR with the SR1 (right-neighbor
-        grading) and SR2 (left-neighbor grading) it received, producing
-        one improved combined response.
-        """
         prompt = (
             f"You produced this original response to a task, then received "
             f"two peer reviews of it. Revise your response into one improved, "
@@ -116,10 +102,6 @@ class MTV:
             return f"[ERROR — {e}]"
 
     def subprimal_merge(self, comerged_responses, task):
-        """
-        R&R-seat-only action: merge all CoMerged responses from this
-        tier into one final synthesized response.
-        """
         joined = "\n\n".join(
             f"RESPONSE {i+1}: {r}" for i, r in enumerate(comerged_responses)
         )
@@ -135,17 +117,13 @@ class MTV:
             return f"[ERROR — {e}]"
 
     def vote(self, final_merge, task):
-        """
-        NASA Preflight vote — this flank agent votes Green/Yellow/Red
-        on the final merged response.
-        """
         prompt = (
             f"Vote on this final answer to the task. Respond with exactly "
             f"one word first — GREEN, YELLOW, or RED — then a one-sentence "
             f"reason.\n\nTASK: {task}\n\nFINAL ANSWER: {final_merge}\n\nVote:"
         )
         try:
-            return ask_qwen(prompt)
+            return ask_qwen(prompt, max_tokens=40)
         except RuntimeError as e:
             return f"[ERROR — {e}]"
 
@@ -162,8 +140,6 @@ class MTV:
         return self.deliberate(task)
 
     def generate_or(self, task):
-        """Original Response as plain text — same interface as Triverai.generate_or,
-        so a chamber seat holding either an MTV or a TV can be called identically."""
         sr = self.generate_sr(task)
         return sr["analysis"]["assessment"]
 
