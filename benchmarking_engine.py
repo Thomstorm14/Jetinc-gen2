@@ -3,7 +3,6 @@ import json
 import hashlib
 import time
 from typing import List, Dict, Any
-from agent_factory import verify_ledger_integrity
 from codex_loader import load_codex_profile
 
 DB_PATH = "jettrix_sim.db"
@@ -12,6 +11,33 @@ CITIES = ["Mount Thomas", "Julian Bay", "Evans"]
 
 def calculate_sha256(data: str) -> str:
     return hashlib.sha256(data.encode('utf-8')).hexdigest()
+
+def verify_ledger_integrity(ledger_path: str) -> bool:
+    try:
+        with open(ledger_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        
+        last_hash = "0000000000000000000000000000000000000000000000000000000000000000"
+        for line in lines:
+            if not line.strip():
+                continue
+            record = json.loads(line.strip())
+            stored_hash = record.pop("hash", None)
+            
+            # Verify previous hash link
+            if record.get("previous_hash") != last_hash:
+                return False
+                
+            # Verify current record hash
+            record_bytes = json.dumps(record, sort_keys=True).encode('utf-8')
+            computed_hash = hashlib.sha256(record_bytes).hexdigest()
+            if computed_hash != stored_hash:
+                return False
+                
+            last_hash = stored_hash
+        return True
+    except Exception:
+        return False
 
 def calculate_jaccard_similarity(str1: str, str2: str) -> float:
     set1 = set(str1.lower().split())
