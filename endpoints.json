@@ -1,0 +1,8 @@
+﻿{
+  "default_endpoint": "http://localhost:11434/api/chat",
+  "default_model": "gemma3:4b",
+  "default_timeout_s": 30.0,
+  "max_concurrent_llm_calls": 4,
+  "mock_mode": false,
+  "seat_overrides": {}
+}
