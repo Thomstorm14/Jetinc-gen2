@@ -42,9 +42,10 @@ REGISTRY_PATH = r"C:\JETinc\Logs\Trident\prime_registry.jsonl"
 # Default deployment context for this single-machine dev run. When real
 # multi-city deployment happens (Section 5F #5), these become per-agent
 # instead of one blanket default.
-DEFAULT_CITY = "JULIANBAY"
-DEFAULT_SHIFT = "DAY"
+from roster import Roster
 
+DEFAULT_SHIFT = "DAY"
+ROSTER_PATH = r"C:\JETinc\Logs\Trident\roster.jsonl"
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
@@ -138,24 +139,14 @@ def assign_seats(triformer):
 # ============================================================
 
 def register_all_seats(registry: PrimeRegistry, triformer_seats, tricore_groups):
-    all_seats = list(triformer_seats)
-    for group in tricore_groups:
-        all_seats.extend(group)
-
-    for seat in all_seats:
-        existing = registry.resolve(seat.seat_id)
-        if existing is not None:
-            seat.prime_id = existing.prime_id
-            continue
-        entity_type = "TRIFORMER" if seat.tier == "triformer" else "MTV"
-        entry = registry.register(
-            short_code=seat.seat_id,
-            entity_type=entity_type,
-            city=DEFAULT_CITY,
-            shift=DEFAULT_SHIFT,
-            seat=seat.seat_id.replace("-", ""),
-        )
-        seat.prime_id = entry.prime_id
+    roster = Roster(ROSTER_PATH, registry)
+    assignment = roster.assign_workstack(DEFAULT_SHIFT)
+    for i, seat in enumerate(triformer_seats):
+        seat.prime_id = assignment["tv_seats"][i]["tv_prime_id"]
+    for i, group in enumerate(tricore_groups):
+        mtv_ids = assignment["tv_seats"][i]["mtv_prime_ids"]
+        for seat, prime_id in zip(group, mtv_ids):
+            seat.prime_id = prime_id
 
 
 def register_admiral_prime(registry: PrimeRegistry):
