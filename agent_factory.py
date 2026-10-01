@@ -54,3 +54,7 @@ codex_loader.bind_codex_to_roster()
 import codex_loader
 print("\n[HOOK] Executing automatic Codex profile binding for active shift...")
 codex_loader.bind_codex_to_roster()
+
+import codex_loader
+print("\n[HOOK] Executing automatic Codex profile binding for active shift...")
+codex_loader.bind_codex_to_roster()
